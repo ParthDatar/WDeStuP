@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "id": "PetriVisualizer",
+    "title": "PetriVisualizer",
+    "panel": "panels/PetriVisualizer/PetriVisualizerPanel",
+    "DEBUG_ONLY": false
+  }
+]

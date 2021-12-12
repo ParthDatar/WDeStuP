@@ -1,4 +1,29 @@
 {
-  "components": {},
-  "dependencies": {}
+  "components": {
+    "seeds": {
+      "PetriNet": {
+        "src": "src/seeds/PetriNet"
+      }
+    },
+    "visualizers": {
+      "PetriVisualizer": {
+        "src": "panels/PetriVisualizer/PetriVisualizerPanel",
+        "title": "PetriVisualizer",
+        "panel": "src/visualizers/panels/PetriVisualizer",
+        "secondary": false,
+        "widget": "src/visualizers/widgets/PetriVisualizer"
+      }
+    },
+    "plugins": {
+      "PetriClassifier": {
+        "src": "src/plugins/PetriClassifier",
+        "test": "test/plugins/PetriClassifier"
+      }
+    }
+  },
+  "dependencies": {
+    "seeds": {},
+    "visualizers": {},
+    "plugins": {}
+  }
 }
