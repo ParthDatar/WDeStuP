@@ -192,9 +192,9 @@ define([
         if (events && events.length > 1) {
             // we need to fill the dropdow button with options
             this.$btnEventSelector.clear();
-            events.forEach(event => {
+            Object.keys(events).forEach(event => {
                 this.$btnEventSelector.addButton({
-                    text: event,
+                    text: events[event],
                     title: 'fire event: '+ event,
                     data: {event: event},
                     clickFn: data => {

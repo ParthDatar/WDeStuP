@@ -245,7 +245,10 @@
                 sm.transitions[transId].joint.attr('body/stroke', '#333333');
             }
         });
-        sm.setFireableEvents(enabled);
+        var result = Object.keys(enabled).filter(function(x) { 
+            return enabled[x] !== false; 
+        });
+        sm.setFireableEvents(result);
     };
     /* * * * * * * * Visualizer event handlers * * * * * * * */
 
