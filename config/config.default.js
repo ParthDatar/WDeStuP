@@ -9,5 +9,9 @@ config.mongo.uri = `mongodb://${mongoHost}:27017/webgme_dcrypps`;
 config.plugin.allowServerExecution = true;
 
 
+config.requirejsPaths['jointjs'] = './node_modules/jointjs/dist/joint.min';
+config.requirejsPaths['lodash'] = './node_modules/lodash/lodash.min';
+
+
 validateConfig(config);
 module.exports = config;

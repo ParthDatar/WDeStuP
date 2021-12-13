@@ -15,6 +15,10 @@
       }
     },
     "plugins": {
+      "MyPluginName": {
+        "src": "src/plugins/MyPluginName",
+        "test": "test/plugins/MyPluginName"
+      },
       "PetriClassifier": {
         "src": "src/plugins/PetriClassifier",
         "test": "test/plugins/PetriClassifier"

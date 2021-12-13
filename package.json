@@ -19,7 +19,9 @@
     "mocha": "^5.2.0"
   },
   "dependencies": {
+    "dia": "^0.3.2",
     "jointjs": "^3.4.4",
+    "lodash": "^4.17.21",
     "webgme": "latest",
     "webgme-bindings": "latest",
     "webgme-cli": "latest"

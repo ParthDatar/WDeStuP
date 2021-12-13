@@ -19,75 +19,66 @@ define([
 
         this._logger = options.logger.fork('Control');
 
+        
         this._client = options.client;
-
+        
         // Initialize core collections and variables
         this._widget = options.widget;
-
+        
         this._currentNodeId = null;
-        this._currentNodeParentId = undefined;
-
+        
+        this._networkRootLoaded = false;
+        
+        this._fireableEvents = null;
+        
         this._initWidgetEventHandlers();
-
+        
+        // we need to fix the context of this function as it will be called from the widget directly
+        this.setFireableEvents = this.setFireableEvents.bind(this);
+        
         this._logger.debug('ctor finished');
     }
-
+    
     PetriVisualizerControl.prototype._initWidgetEventHandlers = function () {
         this._widget.onNodeClick = function (id) {
             // Change the current active object
             WebGMEGlobal.State.registerActiveObject(id);
         };
     };
-
+    
     /* * * * * * * * Visualizer content update callbacks * * * * * * * */
     // One major concept here is with managing the territory. The territory
     // defines the parts of the project that the visualizer is interested in
     // (this allows the browser to then only load those relevant parts).
     PetriVisualizerControl.prototype.selectedObjectChanged = function (nodeId) {
-        var desc = this._getObjectDescriptor(nodeId),
-            self = this;
-
-        self._logger.debug('activeObject nodeId \'' + nodeId + '\'');
-
+        var self = this;
+        
         // Remove current territory patterns
         if (self._currentNodeId) {
             self._client.removeUI(self._territoryId);
+            self._networkRootLoaded = false;
         }
-
+        
         self._currentNodeId = nodeId;
-        self._currentNodeParentId = undefined;
-
+        
         if (typeof self._currentNodeId === 'string') {
             // Put new node's info into territory rules
             self._selfPatterns = {};
-            self._selfPatterns[nodeId] = {children: 0};  // Territory "rule"
-
-            self._widget.setTitle(desc.name.toUpperCase());
-
-            if (typeof desc.parentId === 'string') {
-                self.$btnModelHierarchyUp.show();
-            } else {
-                self.$btnModelHierarchyUp.hide();
-            }
-
-            self._currentNodeParentId = desc.parentId;
-
+            self._selfPatterns[nodeId] = {children: 1};  // Territory "rule"
+            
             self._territoryId = self._client.addUI(self, function (events) {
                 self._eventCallback(events);
             });
-
+            
             // Update the territory
-            self._client.updateTerritory(self._territoryId, self._selfPatterns);
-
-            self._selfPatterns[nodeId] = {children: 1};
             self._client.updateTerritory(self._territoryId, self._selfPatterns);
         }
     };
-
+    
     // This next function retrieves the relevant node information for the widget
     PetriVisualizerControl.prototype._getObjectDescriptor = function (nodeId) {
         var node = this._client.getNode(nodeId),
-            objDescriptor;
+        objDescriptor;
         if (node) {
             objDescriptor = {
                 id: node.getId(),
@@ -97,66 +88,136 @@ define([
                 isConnection: GMEConcepts.isConnection(nodeId)
             };
         }
-
+        
         return objDescriptor;
     };
-
+    
     /* * * * * * * * Node Event Handling * * * * * * * */
     PetriVisualizerControl.prototype._eventCallback = function (events) {
-        var i = events ? events.length : 0,
-            event;
-
-        this._logger.debug('_eventCallback \'' + i + '\' items');
-
-        while (i--) {
-            event = events[i];
-            switch (event.etype) {
-
-            case CONSTANTS.TERRITORY_EVENT_LOAD:
-                this._onLoad(event.eid);
-                break;
-            case CONSTANTS.TERRITORY_EVENT_UPDATE:
-                this._onUpdate(event.eid);
-                break;
-            case CONSTANTS.TERRITORY_EVENT_UNLOAD:
-                this._onUnload(event.eid);
-                break;
-            default:
-                break;
+        const self = this;
+        // console.log("We are taking events");
+        console.log(events);
+        events.forEach(event => {
+            if (event.eid && 
+                event.eid === self._currentNodeId ) {
+                    if (event.etype == 'load' || event.etype == 'update') {
+                        self._networkRootLoaded = true;
+                    } else {
+                        self.clearSM();
+                        return;
+                    }
+                }
+                
+            });
+            
+        };
+        if (events.length && events[0].etype === 'complete' && self._networkRootLoaded) {
+            // complete means we got all requested data and we do not have to wait for additional load cycles
+            // console.log("Why are we not here?");
+            self._initSM();
+        }
+        
+        PetriVisualizerControl.prototype._stateActiveObjectChanged = function (model, activeObjectId) {
+            if (this._currentNodeId === activeObjectId) {
+                // The same node selected as before - do not trigger
+            } else {
+                this.selectedObjectChanged(activeObjectId);
             }
+        };
+        
+        /* * * * * * * * Machine manipulation functions * * * * * * * */
+        PetriVisualizerControl.prototype._initSM = function () {
+            // console.log("We are here, man, frig this trash");
+            const self = this;
+            //just for the ease of use, lets create a META dictionary
+            // console.log("Here")
+            const rawMETA = self._client.getAllMetaNodes();
+            const META = {};
+            rawMETA.forEach(node => {
+                META[node.getAttribute('name')] = node.getId(); //we just need the id...
+            });
+            //now we collect all data we need for network visualization
+            //we need our states (names, position, type), need the set of next state (with event names)
+            const smNode = self._client.getNode(self._currentNodeId);
+            const elementIds = smNode.getChildrenIds();
+            const sm = {places: {}, transitions: {}};
+            elementIds.forEach(elementId => {
+                const node = self._client.getNode(elementId);
+                // the simple way of checking type
+                if (node.isTypeOf(META['Place'])) {
+                    //right now we only interested in states...
+                    const place = {name: node.getAttribute('name'), inittokens: node.getAttribute('tokens'), tokens: node.getAttribute('tokens'), intransitions:[], outtransitions:[], position: node.getRegistry('position')};
+                    // one way to check meta-type in the client context - though it does not check for generalization types like State
+                    // this is in no way optimal, but shows clearly what we are looking for when we collect the data
+                    elementIds.forEach(nextId => {
+                        const nextNode = self._client.getNode(nextId);
+                        if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('src') === elementId) {
+                            place.outtransitions.push(nextNode.getPointerId('dst'));
+                        }
+                        else if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('dst') === elementId) {
+                            place.intransitions.push(nextNode.getPointerId('dst'));
+                        }
+                    });
+                    sm.places[elementId] = place;
+                }
+                if (node.isTypeOf(META['Transition'])) {
+                    //right now we only interested in states...
+                    const trans = {name: node.getAttribute('name'), inplaces:[], outplaces:[], position: node.getRegistry('position')};
+                    // one way to check meta-type in the client context - though it does not check for generalization types like State
+                    // this is in no way optimal, but shows clearly what we are looking for when we collect the data
+                    elementIds.forEach(nextId => {
+                        const nextNode = self._client.getNode(nextId);
+                        if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('src') === elementId) {
+                            trans.intransitions.push(nextNode.getPointerId('dst'));
+                        }
+                        else if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('dst') === elementId) {
+                            trans.inplaces.push(nextNode.getPointerId('dst'));
+                        }
+                    });
+                    sm.transitions[elementId] = trans;
+                }
+            });
+            sm.setFireableEvents = this.setFireableEvents;
+            
+            self._widget.initMachine(sm);
+        };
+    
+    PetriVisualizerControl.prototype.clearSM = function () {
+        const self = this;
+        self._networkRootLoaded = false;
+        self._widget.destroyMachine();
+    };
+    
+    PetriVisualizerControl.prototype.setFireableEvents = function (events) {
+        this._fireableEvents = events;
+        if (events && events.length > 1) {
+            // we need to fill the dropdow button with options
+            this.$btnEventSelector.clear();
+            events.forEach(event => {
+                this.$btnEventSelector.addButton({
+                    text: event,
+                    title: 'fire event: '+ event,
+                    data: {event: event},
+                    clickFn: data => {
+                        this._widget.fireEvent(data.event);
+                    }
+                });
+            });
+        } 
+        else if (events && events.length === 0) {
+            this._fireableEvents = null;
+            self._client.notifyUser("Please reset to continue");
         }
-
-        this._logger.debug('_eventCallback \'' + events.length + '\' items - DONE');
+        
+        this._displayToolbarItems();
     };
-
-    PetriVisualizerControl.prototype._onLoad = function (gmeId) {
-        var description = this._getObjectDescriptor(gmeId);
-        this._widget.addNode(description);
-    };
-
-    PetriVisualizerControl.prototype._onUpdate = function (gmeId) {
-        var description = this._getObjectDescriptor(gmeId);
-        this._widget.updateNode(description);
-    };
-
-    PetriVisualizerControl.prototype._onUnload = function (gmeId) {
-        this._widget.removeNode(gmeId);
-    };
-
-    PetriVisualizerControl.prototype._stateActiveObjectChanged = function (model, activeObjectId) {
-        if (this._currentNodeId === activeObjectId) {
-            // The same node selected as before - do not trigger
-        } else {
-            this.selectedObjectChanged(activeObjectId);
-        }
-    };
-
+    
     /* * * * * * * * Visualizer life cycle callbacks * * * * * * * */
     PetriVisualizerControl.prototype.destroy = function () {
         this._detachClientEventListeners();
         this._removeToolbarItems();
     };
-
+    
     PetriVisualizerControl.prototype._attachClientEventListeners = function () {
         this._detachClientEventListeners();
         WebGMEGlobal.State.on('change:' + CONSTANTS.STATE_ACTIVE_OBJECT, this._stateActiveObjectChanged, this);
@@ -165,83 +226,120 @@ define([
     PetriVisualizerControl.prototype._detachClientEventListeners = function () {
         WebGMEGlobal.State.off('change:' + CONSTANTS.STATE_ACTIVE_OBJECT, this._stateActiveObjectChanged);
     };
-
+    
     PetriVisualizerControl.prototype.onActivate = function () {
         this._attachClientEventListeners();
         this._displayToolbarItems();
-
+        
         if (typeof this._currentNodeId === 'string') {
             WebGMEGlobal.State.registerActiveObject(this._currentNodeId, {suppressVisualizerFromNode: true});
         }
     };
-
+    
     PetriVisualizerControl.prototype.onDeactivate = function () {
         this._detachClientEventListeners();
         this._hideToolbarItems();
     };
-
+    
     /* * * * * * * * * * Updating the toolbar * * * * * * * * * */
     PetriVisualizerControl.prototype._displayToolbarItems = function () {
-
+        
         if (this._toolbarInitialized === true) {
             for (var i = this._toolbarItems.length; i--;) {
                 this._toolbarItems[i].show();
+            }
+            if (this._fireableEvents === null) {
+                this.$btnEventSelector.hide();
+                this.$btnSingleEvent.hide();
+            } else if (this._fireableEvents.length == 1) {
+                this.$btnEventSelector.hide();
+            } else {
+                this.$btnSingleEvent.hide();
             }
         } else {
             this._initializeToolbar();
         }
     };
-
+    
     PetriVisualizerControl.prototype._hideToolbarItems = function () {
-
+        
         if (this._toolbarInitialized === true) {
             for (var i = this._toolbarItems.length; i--;) {
                 this._toolbarItems[i].hide();
             }
         }
     };
-
+    
     PetriVisualizerControl.prototype._removeToolbarItems = function () {
-
+        
         if (this._toolbarInitialized === true) {
             for (var i = this._toolbarItems.length; i--;) {
                 this._toolbarItems[i].destroy();
             }
         }
     };
-
+    
     PetriVisualizerControl.prototype._initializeToolbar = function () {
         var self = this,
-            toolBar = WebGMEGlobal.Toolbar;
-
+        toolBar = WebGMEGlobal.Toolbar;
+        
         this._toolbarItems = [];
-
+        
         this._toolbarItems.push(toolBar.addSeparator());
-
+        
         /************** Go to hierarchical parent button ****************/
-        this.$btnModelHierarchyUp = toolBar.addButton({
-            title: 'Go to parent',
-            icon: 'glyphicon glyphicon-circle-arrow-up',
+        this.$btnReachCheck = toolBar.addButton({
+            title: 'Check petri net properties',
+            icon: 'glyphicon glyphicon-question-sign',
             clickFn: function (/*data*/) {
-                WebGMEGlobal.State.registerActiveObject(self._currentNodeParentId);
-            }
-        });
-        this._toolbarItems.push(this.$btnModelHierarchyUp);
-        this.$btnModelHierarchyUp.hide();
-
-        /************** Checkbox example *******************/
-
-        this.$cbShowConnection = toolBar.addCheckBox({
-            title: 'toggle checkbox',
-            icon: 'gme icon-gme_diagonal-arrow',
-            checkChangedFn: function (data, checked) {
-                self._logger.debug('Checkbox has been clicked!');
-            }
-        });
-        this._toolbarItems.push(this.$cbShowConnection);
-
-        this._toolbarInitialized = true;
-    };
-
-    return PetriVisualizerControl;
-});
+                const context = self._client.getCurrentPluginContext('PetriClassifier',self._currentNodeId, []);
+                // !!! it is important to fill out or pass an empty object as the plugin config otherwise we might get errors...
+                context.pluginConfig = {};
+                self._client.runServerPlugin(
+                    'PetriClassifier', 
+                    context, 
+                    function(err, result){
+                        // here comes any additional processing of results or potential errors.
+                        console.log('plugin err:', err);
+                        console.log('plugin result:', result);
+                    });
+                }
+            });
+            this._toolbarItems.push(this.$btnReachCheck);
+            
+            this.$btnResetMachine = toolBar.addButton({
+                title: 'Reset simulator',
+                icon: 'glyphicon glyphicon-fast-backward',
+                clickFn: function (/*data*/) {
+                    self._widget.resetMachine();
+                }
+            });
+            this._toolbarItems.push(this.$btnResetMachine);
+            
+            // when there are multiple events to choose from we offer a selector
+            this.$btnEventSelector = toolBar.addDropDownButton({
+                text: 'event'
+            });
+            this._toolbarItems.push(this.$btnEventSelector);
+            this.$btnEventSelector.hide();
+            
+            // if there is only one event we just show a play button
+            this.$btnSingleEvent = toolBar.addButton({
+                title: 'Fire event',
+                icon: 'glyphicon glyphicon-play',
+                clickFn: function (/*data*/) {
+                    self._widget.fireEvent(self._fireableEvents[0]);
+                }
+            });
+            this._toolbarItems.push(this.$btnSingleEvent);
+            
+            
+            /************** Dropdown for event progression *******************/
+            
+            
+            this._toolbarInitialized = true;
+        };
+        
+        return PetriVisualizerControl;
+    });
+    
