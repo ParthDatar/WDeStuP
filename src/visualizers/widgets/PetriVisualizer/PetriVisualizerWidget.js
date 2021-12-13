@@ -34,8 +34,8 @@
         this._jointSM = new joint.dia.Graph;
         this._jointPaper = new joint.dia.Paper({
             el: this._el,
-            width : "80%",
-            height: "80%",
+            width : "100%",
+            height: "50%",
             model: this._jointSM,
             interactive: false
         });
@@ -181,7 +181,6 @@
         });
         
         //now refresh the visualization
-        self._jointPaper.scaleContentToFit();
         self._jointPaper.updateViews();
         console.log(self._jointPaper);
         self._decorateMachine();
