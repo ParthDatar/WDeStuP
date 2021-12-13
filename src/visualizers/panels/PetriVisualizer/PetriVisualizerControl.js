@@ -107,80 +107,79 @@ define([
                         return;
                     }
                 }
-                
-            });
+        });
             
-        };
         if (events.length && events[0].etype === 'complete' && self._networkRootLoaded) {
             // complete means we got all requested data and we do not have to wait for additional load cycles
             // console.log("Why are we not here?");
             self._initSM();
         }
+    };
         
-        PetriVisualizerControl.prototype._stateActiveObjectChanged = function (model, activeObjectId) {
-            if (this._currentNodeId === activeObjectId) {
-                // The same node selected as before - do not trigger
-            } else {
-                this.selectedObjectChanged(activeObjectId);
+    PetriVisualizerControl.prototype._stateActiveObjectChanged = function (model, activeObjectId) {
+        if (this._currentNodeId === activeObjectId) {
+            // The same node selected as before - do not trigger
+        } else {
+            this.selectedObjectChanged(activeObjectId);
+        }
+    };
+        
+    /* * * * * * * * Machine manipulation functions * * * * * * * */
+    PetriVisualizerControl.prototype._initSM = function () {
+        // console.log("We are here, man, frig this trash");
+        const self = this;
+        //just for the ease of use, lets create a META dictionary
+        // console.log("Here")
+        const rawMETA = self._client.getAllMetaNodes();
+        const META = {};
+        rawMETA.forEach(node => {
+            META[node.getAttribute('name')] = node.getId(); //we just need the id...
+        });
+        //now we collect all data we need for network visualization
+        //we need our states (names, position, type), need the set of next state (with event names)
+        const smNode = self._client.getNode(self._currentNodeId);
+        const elementIds = smNode.getChildrenIds();
+        const sm = {places: {}, transitions: {}};
+        elementIds.forEach(elementId => {
+            const node = self._client.getNode(elementId);
+            // the simple way of checking type
+            if (node.isTypeOf(META['Place'])) {
+                //right now we only interested in states...
+                const place = {name: node.getAttribute('name'), inittokens: node.getAttribute('tokens'), tokens: node.getAttribute('tokens'), intransitions:[], outtransitions:[], position: node.getRegistry('position')};
+                // one way to check meta-type in the client context - though it does not check for generalization types like State
+                // this is in no way optimal, but shows clearly what we are looking for when we collect the data
+                elementIds.forEach(nextId => {
+                    const nextNode = self._client.getNode(nextId);
+                    if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('src') === elementId) {
+                        place.outtransitions.push(nextNode.getPointerId('dst'));
+                    }
+                    else if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('dst') === elementId) {
+                        place.intransitions.push(nextNode.getPointerId('src'));
+                    }
+                });
+                sm.places[elementId] = place;
             }
-        };
+            if (node.isTypeOf(META['Transition'])) {
+                //right now we only interested in states...
+                const trans = {name: node.getAttribute('name'), inplaces:[], outplaces:[], position: node.getRegistry('position')};
+                // one way to check meta-type in the client context - though it does not check for generalization types like State
+                // this is in no way optimal, but shows clearly what we are looking for when we collect the data
+                elementIds.forEach(nextId => {
+                    const nextNode = self._client.getNode(nextId);
+                    if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('src') === elementId) {
+                        trans.outplaces.push(nextNode.getPointerId('dst'));
+                    }
+                    else if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('dst') === elementId) {
+                        trans.inplaces.push(nextNode.getPointerId('src'));
+                    }
+                });
+                sm.transitions[elementId] = trans;
+            }
+        });
+        sm.setFireableEvents = this.setFireableEvents;
         
-        /* * * * * * * * Machine manipulation functions * * * * * * * */
-        PetriVisualizerControl.prototype._initSM = function () {
-            // console.log("We are here, man, frig this trash");
-            const self = this;
-            //just for the ease of use, lets create a META dictionary
-            // console.log("Here")
-            const rawMETA = self._client.getAllMetaNodes();
-            const META = {};
-            rawMETA.forEach(node => {
-                META[node.getAttribute('name')] = node.getId(); //we just need the id...
-            });
-            //now we collect all data we need for network visualization
-            //we need our states (names, position, type), need the set of next state (with event names)
-            const smNode = self._client.getNode(self._currentNodeId);
-            const elementIds = smNode.getChildrenIds();
-            const sm = {places: {}, transitions: {}};
-            elementIds.forEach(elementId => {
-                const node = self._client.getNode(elementId);
-                // the simple way of checking type
-                if (node.isTypeOf(META['Place'])) {
-                    //right now we only interested in states...
-                    const place = {name: node.getAttribute('name'), inittokens: node.getAttribute('tokens'), tokens: node.getAttribute('tokens'), intransitions:[], outtransitions:[], position: node.getRegistry('position')};
-                    // one way to check meta-type in the client context - though it does not check for generalization types like State
-                    // this is in no way optimal, but shows clearly what we are looking for when we collect the data
-                    elementIds.forEach(nextId => {
-                        const nextNode = self._client.getNode(nextId);
-                        if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('src') === elementId) {
-                            place.outtransitions.push(nextNode.getPointerId('dst'));
-                        }
-                        else if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('dst') === elementId) {
-                            place.intransitions.push(nextNode.getPointerId('dst'));
-                        }
-                    });
-                    sm.places[elementId] = place;
-                }
-                if (node.isTypeOf(META['Transition'])) {
-                    //right now we only interested in states...
-                    const trans = {name: node.getAttribute('name'), inplaces:[], outplaces:[], position: node.getRegistry('position')};
-                    // one way to check meta-type in the client context - though it does not check for generalization types like State
-                    // this is in no way optimal, but shows clearly what we are looking for when we collect the data
-                    elementIds.forEach(nextId => {
-                        const nextNode = self._client.getNode(nextId);
-                        if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('src') === elementId) {
-                            trans.intransitions.push(nextNode.getPointerId('dst'));
-                        }
-                        else if(nextNode.isTypeOf(META['Arc']) && nextNode.getPointerId('dst') === elementId) {
-                            trans.inplaces.push(nextNode.getPointerId('dst'));
-                        }
-                    });
-                    sm.transitions[elementId] = trans;
-                }
-            });
-            sm.setFireableEvents = this.setFireableEvents;
-            
-            self._widget.initMachine(sm);
-        };
+        self._widget.initMachine(sm);
+    };
     
     PetriVisualizerControl.prototype.clearSM = function () {
         const self = this;

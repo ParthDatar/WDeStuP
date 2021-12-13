@@ -72,7 +72,7 @@
                 size: { width: 40, height: 40},
                 attrs: {
                     label : {
-                        text: sm.places[placeId].name + "-" + sm.place[placeId].tokens,
+                        text: sm.places[placeId].name + "-" + sm.places[placeId].tokens,
                         //event: 'element:label:pointerdown',
                         fontWeight: 'bold',
                         //cursor: 'text',
@@ -225,21 +225,23 @@
         var enabled = {};
         Object.keys(sm.transitions).forEach(transId => {
             enabled[transId] = true;
-            if(pn.transitions[transId].inplaces.length == 0){
+            if(sm.transitions[transId].inplaces.length == 0){
                 enabled[transId] = false;
             }
             else{
                 sm.transitions[transId].inplaces.forEach(placeId =>{
-                    if(pn.places[placeId].tokens == 0){
+                    console.log(sm.transitions[transId]);
+                    console.log(sm.places);
+                    if(sm.places[placeId].tokens == 0){
                         enabled[transId] = false;
                     }
                 });
             }
             if(enabled[transId]){
-                pn.transitions[transId].joint.attrs('body/stroke', 'blue');
+                sm.transitions[transId].joint.attr('body/stroke', 'blue');
             }
             else{
-                pn.transitions[transId].joint.attrs('body/stroke', '#333333');
+                sm.transitions[transId].joint.attr('body/stroke', '#333333');
             }
         });
         sm.setFireableEvents(enabled);
