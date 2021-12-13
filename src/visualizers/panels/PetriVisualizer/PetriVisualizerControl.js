@@ -198,7 +198,7 @@ define([
                     title: 'fire event: '+ event,
                     data: {event: event},
                     clickFn: data => {
-                        this._widget.fireEvent(data.event);
+                        this._widget.fireEvent(event);
                     }
                 });
             });
