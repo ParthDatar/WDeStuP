@@ -17,3 +17,5 @@ objects, should you so wish.
 
 Then go to the Petri Visualizer, and you can see a simulation of the Petri Net. Click on the question mark
 to discover the properties of your Petri Net, and the rewind button to reset the model to its initial place.
+
+You can find some helpful examples, such as two roads, nowhere, a double add net, and a shift net!
