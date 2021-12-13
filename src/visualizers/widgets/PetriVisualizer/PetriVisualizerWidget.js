@@ -31,15 +31,15 @@
 
         // Create a dummy header
         this._el.append('<h3>PetriVisualizer Events:</h3>');
-
         this._jointSM = new joint.dia.Graph;
         this._jointPaper = new joint.dia.Paper({
             el: this._el,
-            width : width,
-            height: height,
+            width : "80%",
+            height: "80%",
             model: this._jointSM,
             interactive: false
         });
+        
 
         // this._webgmeSM = null;
     };
@@ -77,45 +77,46 @@
                         fontWeight: 'bold',
                         //cursor: 'text',
                         //style: {
-                        //    userSelect: 'text'
-                        //}
-                    },
-                    body: {
-                        strokeWidth: 3,
-                        cursor: 'pointer'
+                            //    userSelect: 'text'
+                            //}
+                        },
+                        body: {
+                            strokeWidth: 3,
+                            cursor: 'pointer'
+                        }
                     }
-                }
+                });
+                vertex.addTo(self._jointSM);
+                sm.places[placeId].joint = vertex;
+                sm.id2place[vertex.id] = placeId;
             });
-            vertex.addTo(self._jointSM);
-            sm.places[placeId].joint = vertex;
-            sm.id2place[vertex.id] = placeId;
-        });
-        Object.keys(sm.transitions).forEach(transId => {
-            let vertex = null;
-            vertex = new joint.shapes.standard.Rectangle({
-                position: sm.transitions[transId].position,
-                size: { width: 20, height: 40},
-                attrs: {
-                    label : {
-                        text: sm.transitions[transId].name,
-                        //event: 'element:label:pointerdown',
-                        fontWeight: 'bold',
-                        //cursor: 'text',
-                        //style: {
-                        //    userSelect: 'text'
-                        //}
-                    },
-                    body: {
-                        strokeWidth: 3,
-                        cursor: 'pointer'
-                    }
-                }
-            });
-            vertex.addTo(self._jointSM);
-            sm.transitions[transId].joint = vertex;
-            sm.id2trans[vertex.id] = transId;
-        });
-
+            Object.keys(sm.transitions).forEach(transId => {
+                let vertex = null;
+                vertex = new joint.shapes.standard.Rectangle({
+                    position: sm.transitions[transId].position,
+                    size: { width: 20, height: 40},
+                    attrs: {
+                        label : {
+                            text: sm.transitions[transId].name,
+                            //event: 'element:label:pointerdown',
+                            fontWeight: 'bold',
+                            //cursor: 'text',
+                            //style: {
+                                //    userSelect: 'text'
+                                //}
+                            },
+                            body: {
+                                strokeWidth: 3,
+                                cursor: 'pointer'
+                            }
+                        }
+                    });
+                    
+                    vertex.addTo(self._jointSM);
+                    sm.transitions[transId].joint = vertex;
+                    sm.id2trans[vertex.id] = transId;
+                });
+                
         // then create the links
         Object.keys(sm.places).forEach(placeId => {
             const place = sm.places[placeId];
@@ -147,7 +148,7 @@
                 place.jointNext[trans] = link;
             })
         });
-
+        
         Object.keys(sm.transitions).forEach(transId => {
             const trans = sm.transitions[transId];
             trans.outplaces.forEach(place => {
@@ -178,17 +179,18 @@
                 trans.jointNext[place] = link;
             })
         });
-
+        
         //now refresh the visualization
         self._jointPaper.scaleContentToFit();
         self._jointPaper.updateViews();
+        console.log(self._jointPaper);
         self._decorateMachine();
     };
-
+    
     PetriVisualizerWidget.prototype.destroyMachine = function () {
-
+        
     };
-
+    
     PetriVisualizerWidget.prototype.fireEvent = function (event) {
         const self = this;
         const sm = this._webgmeSM;
@@ -223,6 +225,7 @@
     PetriVisualizerWidget.prototype._decorateMachine = function() {
         const sm = this._webgmeSM;
         var enabled = {};
+
         Object.keys(sm.transitions).forEach(transId => {
             enabled[transId] = true;
             if(sm.transitions[transId].inplaces.length == 0){
@@ -230,10 +233,9 @@
             }
             else{
                 sm.transitions[transId].inplaces.forEach(placeId =>{
-                    console.log(sm.transitions[transId]);
-                    console.log(sm.places);
                     if(sm.places[placeId].tokens == 0){
                         enabled[transId] = false;
+                        
                     }
                 });
             }
