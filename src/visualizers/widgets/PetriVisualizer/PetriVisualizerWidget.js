@@ -35,7 +35,7 @@
         this._jointPaper = new joint.dia.Paper({
             el: this._el,
             width : "100%",
-            height: "50%",
+            height: "100%",
             model: this._jointSM,
             interactive: false
         });
@@ -69,7 +69,7 @@
             let vertex = null;
             vertex = new joint.shapes.standard.Circle({
                 position: sm.places[placeId].position,
-                size: { width: 40, height: 40},
+                size: { width: 100, height: 100},
                 attrs: {
                     label : {
                         text: sm.places[placeId].name + "-" + sm.places[placeId].tokens,
