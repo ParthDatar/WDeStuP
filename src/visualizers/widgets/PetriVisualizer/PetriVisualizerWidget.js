@@ -193,6 +193,8 @@
     PetriVisualizerWidget.prototype.fireEvent = function (event) {
         const self = this;
         const sm = this._webgmeSM;
+        console.log(event);
+        console.log(sm.transitions[event]);
         sm.transitions[event].inplaces.forEach(placeId => {
             sm.places[placeId].tokens--;
             sm.places[placeId].joint.attr('label/text', sm.places[placeId].name + '-' + sm.places[placeId].tokens)
@@ -207,7 +209,7 @@
             const linkView = link.findView(self._jointPaper);
             linkView.sendToken(joint.V('circle', { r: 10, fill: 'black' }), {duration:500}, function(){});
         }), 500);
-        sm._decorateMachine();
+        self._decorateMachine();
     };
 
     PetriVisualizerWidget.prototype.resetMachine = function () {
@@ -216,6 +218,7 @@
 
         Object.keys(sm.places).forEach(placeId => {
             sm.places[placeId].tokens = sm.places[placeId].inittokens;
+            sm.places[placeId].joint.attr('label/text', sm.places[placeId].name + "-" + sm.places[placeId].tokens)
         });
 
         self._decorateMachine();
@@ -248,6 +251,8 @@
         var result = Object.keys(enabled).filter(function(x) { 
             return enabled[x] !== false; 
         });
+        result = result.map(function(x) {return [x, sm.transitions[x].name];});
+        console.log(result);
         sm.setFireableEvents(result);
     };
     /* * * * * * * * Visualizer event handlers * * * * * * * */

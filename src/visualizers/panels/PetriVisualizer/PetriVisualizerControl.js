@@ -192,20 +192,21 @@ define([
         if (events && events.length > 1) {
             // we need to fill the dropdow button with options
             this.$btnEventSelector.clear();
-            Object.keys(events).forEach(event => {
+            events.forEach(event => {
+                console.log(event);
                 this.$btnEventSelector.addButton({
-                    text: events[event],
-                    title: 'fire event: '+ event,
-                    data: {event: event},
+                    text: event[1],
+                    title: 'fire event: '+ event[1],
+                    data: {event: event[1]},
                     clickFn: data => {
-                        this._widget.fireEvent(event);
+                        this._widget.fireEvent(event[0]);
                     }
                 });
             });
         } 
         else if (events && events.length === 0) {
             this._fireableEvents = null;
-            self._client.notifyUser("Please reset to continue");
+            this._logger.warn("Please reset to continue");
         }
         
         this._displayToolbarItems();
